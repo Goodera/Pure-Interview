@@ -1,0 +1,23 @@
+新博新美
+1.自我介绍，简单介绍一下项目
+2.Hive优化
+3.Hive外部表和内部表区别，你们公司用的是内部表还是外部表
+4.Hive的元数据以什么格式存储的
+5.Hbase的工作原理？假如有个RegionServer宕机了，怎么解决
+6.说一下JVM
+7.任务调度用的是什么？oozie怎么配置的？
+8.Spark工作原理。Spark的内存模型。讲一下Spark源码
+9.Hadoop、RDD的英文全称是什么？讲一下你对RDD的理解
+10.spark你用过哪些算子，说一下他们的区别？mappartition和foreachpartition的区别
+11.spark有哪些组件，除了master和worker
+12.讲一下redis的基本原理
+13.spark streaming操作的是什么类型的数据？spark streaming和storm的区别?spark streaming和RDD的关系？
+14.讲一下flink,和spark streaming和storm的区别？
+15.spark跑任务内存怎么分配的？出现数据倾斜怎么处理？
+16.spark的运行模式？spark on yarn的工作原理？
+17.stage怎么划分，task怎么划分
+18.spark优化
+19.有没有遇到Hive的数据倾斜？怎么处理的？
+20.有没有做过top n，怎么实现的
+21.数据量多少？集群规模？存到HDFS数据是否有过清理
+22.说一下linux查看文件的命令，查看磁盘占用情况的命令

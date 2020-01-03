@@ -1,0 +1,459 @@
+--------------规划--------------
+-----dw-----
+fact_sales_order
+orc格式存储，按天增量抽取，所以要对天进行分区，最好可以建立外部表，防止误删除
+订单编号：order_sk int
+客户编号：customer_sk int
+商品编号：product_sk int
+订单日期：order_date string
+订单金额：order_amount double
+
+-----dim-----
+dim_customer
+orc格式存储
+客户代理键：customer_sk int,
+编号：customer_number int
+客户名称：customer_name string
+地址：customer_street_addrress string
+邮编：customer_zip_code int
+所在城市：customer_city string
+所在省份：customer_state string
+版本：version string,
+生效时间：effective_date string,
+过期时间：expiry_date string
+
+dim_product
+orc格式存储
+产品代理键：product_sk int
+产品编号：product_code int
+产品名称：product_name string
+产品分类：product_category string
+
+dim_order
+orc格式存储
+订单代理键：order_sk int
+订单编号：order_number int
+
+dim_date
+textfile格式存储
+时间代理键：date_sk int
+时间：dates string
+月：month int
+月份名称：month_name string
+季度：quarter int
+年份：year int
+   
+-----ods-----
+ods_customer
+orc格式存储，按天进行分区，由于要做成拉链表，元数据库中没有维护更新时间那一列，所以每天全量导入，每天全量的数据一个分区，然后比对数据生成拉链表
+编号：customer_number int
+客户名称：customer_name string
+地址：customer_street_addrress string
+邮编：customer_zip_code string
+所在城市：customer_city string
+所在省份：customer_state string
+
+ods_product
+orc格式存储
+产品编号：product_code int
+产品名称：product_name string
+产品分类：product_category string
+
+ods_sales_order
+orc格式存储。按天分区
+订单编号：order_number int
+编号：customer_number int
+产品编号：product_code int
+订单日期：order_date string
+过期时间：expiry_date string
+订单金额：order_amount double 
+
+-----mysql-----
+customer
+product
+sales_order
+	
+--------------语句实现--------------
+#创建ods层数据库和相应的表
+create database if not exists ods;
+use ods;
+
+#ods_customer
+create table if not exists ods.ods_customer(
+customer_number int,
+customer_name string,
+customer_street_addrress string,
+customer_zip_code string,
+customer_city string,
+customer_state string
+)
+partitioned by (days string)
+stored as orc;
+
+#ods_product
+create table if not exists ods.ods_product(
+product_code int,
+product_name string,
+product_category string
+)
+stored as orc;
+
+#ods_sales_order
+create table if not exists ods.ods_sales_order(
+order_number int,
+customer_number int,
+product_code int,
+order_date string,
+entry_date string,
+order_amount double
+)
+partitioned by (days string)
+row format delimited
+fields terminated by ','
+stored as orc;
+
+#创建dim层的数据库和表
+create database if not exists dim;
+use dim;
+
+#dim_customer
+create table if not exists dim.dim_customer(
+customer_sk int,
+customer_number int,
+customer_name string,
+customer_street_addrress string,
+customer_zip_code int,
+customer_city string,
+customer_state string,
+version string,
+effective_date string,
+expiry_date string
+)
+stored as orc
+tblproperties('transactional'='true');
+
+#dim_product
+create table if not exists dim.dim_product(
+product_sk int,
+product_code int,
+product_name string,
+product_category string
+)
+stored as orc
+tblproperties('transactional'='true');
+
+#dim_order
+create table dim_order(
+order_sk int,
+order_number int
+)
+stored as orc
+tblproperties('transactional'='true');
+
+#dim_date
+create table dim_date(
+date_sk int,
+dates string,
+month int,
+month_name string,
+quarter int,
+year int
+)
+row format delimited
+fields terminated by ','
+stored as textfile;
+
+#创建dw层的数据库和表
+create database if not exists dw;
+use dw;
+
+#fact_sales_order
+create table fact_sales_order(
+order_sk int,
+customer_sk int,
+product_sk int,
+order_date string,
+order_amount double
+)
+partitioned by (days string)
+row format delimited fields terminated by '\t'
+stored as orc
+tblproperties('transactional'='true');
+
+#为ods层的ods_product和ods_customer表导入数据，采用定时全量导入，因为是orc格式，所以需要创建中间表
+#ods_customer
+sqoop import \
+--connect jdbc:mysql://hadoop03:3306/sales_source \
+--username hive \
+--password 123456 \
+--table 'customer' \
+--target-dir hdfs://hadoop01:9000/user/customer_temp \
+--delete-target-dir \
+-m 1
+
+#ods_product
+sqoop import \
+--connect jdbc:mysql://hadoop03:3306/sales_source \
+--username hive \
+--password 123456 \
+--table 'product' \
+--target-dir hdfs://hadoop01:9000/user/product_temp \
+--delete-target-dir \
+-m 1
+
+#创建增量导入的job，为ods_sales_order导入数据
+#先创建密码文件
+echo -n "123456" >sqoopPWD.pwd
+hdfs dfs -mkdir -p /sqoop/pwd
+hdfs dfs -put sqoopPWD.pwd /sqoop/pwd
+hdfs dfs -chmod 400 /sqoop/pwd/sqoopPWD.pwd
+
+sqoop job \
+--create input_ods_sales_order_job \
+-- import \
+--connect jdbc:mysql://hadoop03:3306/sales_source \
+--username hive \
+--password-file /sqoop/pwd/sqoopPWD.pwd \
+--query "select * from sales_order where \$CONDITIONS" \
+--target-dir hdfs://hadoop01:9000/user/sales_order_temp \
+--incremental lastmodified \
+--check-column entry_date \
+--last-value '2019-10-11' \
+-m 1
+
+#查看所有job
+sqoop job --list
+
+#执行job
+sqoop job --exec input_ods_sales_order_job
+
+#删除job
+sqoop job --delete input_ods_sales_order_job
+
+#创建中间数据库和表
+create database if not exists temp;
+use temp;
+
+#temp_customer
+create table if not exists temp.temp_customer(
+customer_number int,
+customer_name string,
+customer_street_addrress string,
+customer_zip_code string,
+customer_city string,
+customer_state string
+)
+row format delimited
+fields terminated by ','
+;
+load data inpath 'hdfs://hadoop01:9000/user/customer_temp' into table temp.temp_customer;
+
+insert overwrite table ods.ods_customer
+partition(days='2019-10-11')
+select * from temp.temp_customer;
+
+#temp_product
+create table if not exists temp.temp_product(
+product_code int,
+product_name string,
+product_category string
+)
+row format delimited
+fields terminated by ','
+;
+load data inpath 'hdfs://hadoop01:9000/user/product_temp' into table temp.temp_product;
+
+insert overwrite table ods.ods_product
+select * from temp.temp_product;
+
+#temp_sales_order
+create table if not exists temp.temp_sales_order(
+order_number int,
+customer_number int,
+product_code int,
+order_date string,
+entry_date string,
+order_amount double
+)
+row format delimited
+fields terminated by ','
+;
+load data inpath 'hdfs://hadoop01:9000/user/sales_order_temp' into table temp.temp_sales_order;
+
+insert overwrite table ods.ods_sales_order
+partition(days='2019-10-11')
+select * from temp.temp_sales_order;
+
+#删除hdfs上的sales_order_temp
+hdfs dfs -rm -r /user/sales_order_temp
+
+#ods层的数据全部导入完毕
+#开始从ods到dim和dw
+#首先清空dim和dw层的表
+truncate table dim.dim_customer;
+truncate table dim.dim_order;
+truncate table dim.dim_product;
+truncate table dw.fact_sales_order;
+
+#装载dim_customer
+insert into dim_customer
+select
+t1.customer_number,
+t1.customer_number, 
+t1.customer_name, 
+t1.customer_street_addrress,
+t1.customer_zip_code, 
+t1.customer_city, 
+t1.customer_state, 
+1,
+days effective_date,
+'9999-12-31' expiry_date
+from ods.ods_customer t1
+where days='2019-10-11'
+;
+
+create database if not exists tmp;
+create table tmp.tmp_order
+as
+select
+customer_sk,
+customer_number,
+customer_name,
+customer_street_addrress,
+customer_zip_code, 
+customer_city, 
+customer_state, 
+1,
+case when (lead(effective_date) over(distribute by customer_sk sort by effective_date)) is null then effective_date else expiry_date end start_date,
+nvl(lead(effective_date) over(distribute by customer_sk sort by effective_date),expiry_date) end_date
+from(
+select 
+customer_sk,
+customer_number,
+customer_name,
+customer_street_addrress,
+customer_zip_code,
+customer_city,
+customer_state,
+1,
+effective_date,
+expiry_date
+from dim.dim_customer
+union all
+select
+customer_number customer_sk,
+customer_number, 
+customer_name, 
+customer_street_addrress,
+customer_zip_code, 
+customer_city, 
+customer_state, 
+1,
+days effective_date,
+'9999-12-31' expiry_date
+from ods.ods_customer
+where days='2019-10-12'
+) t1
+; 
+
+insert overwrite table dim.dim_customer
+select * from tmp.tmp_order;
+
+drop table tmp.tmp_order;
+
+select * from dim_customer;
+
+
+#装载dim_product
+insert into dim_product (product_sk,product_code,product_name,product_category)
+select 
+t1.product_code,
+product_code, 
+product_name, 
+product_category
+from ods.ods_product t1;
+
+select * from dim.dim_product;
+
+#装载dim_order
+insert into dim_order(order_sk,order_number)
+select 
+t1.order_number,
+order_number
+from ods.ods_sales_order t1;
+
+select * from dim.dim_order;
+
+#装载dim_date
+#创建脚本，获取时间数据
+vi create_date.sh
+
+#!/bin/bash
+date1="$1"
+date2="$2"
+tempdate=`date -d "$date1" +%F`
+tempdateSec=`date -d "$date2" +%s`
+enddateSec=`date -d "$date2" +%s`
+min=1
+#max=`expr \( $enddateSec - $tempdateSec \) /  \( 24 \* 60 \* 60 \) + 1`
+max=14611
+cat /dev/null >./dim_date.csv
+
+while [ $min -le $max ] 
+do
+	month=`date -d "$tempdate" +%m`
+	month_name=`date -d "$tempdate" +%B`
+	quarter=`echo $month | awk '{print int(($0-1)/3)+1}'`
+	year=`date -d "$tempdate" +%Y`
+	echo ${min}","${tempdate}","${month}","${month_name}","${quarter}","${year} >> ./dim_date.csv
+	tempdate=`date -d "+$min day $date1" +%F`
+	tempdateSec=`date -d "+min day $date1" +%s`
+	min=`expr $min + 1`
+done
+
+#执行脚本
+chmod 750 create_date.sh
+./create_date.sh
+
+#导入到hdfs
+hdfs dfs -put /opt/shell/dim_date.csv /user/data/hive/warehouse/dim.db/dim_date
+
+#装载fact_sales_order
+#先要修改为非严格模式
+set hive.exec.dynamic.partition.mode=nonstrict;
+
+insert into dw.fact_sales_order
+partition(days)
+select
+order_sk,
+customer_sk,
+product_sk,
+order_date,
+order_amount,
+to_date(a.order_date) days
+from ods.ods_sales_order a
+join dim.dim_order b
+on a.order_number = b.order_number
+join dim.dim_customer c
+on a.customer_number = c.customer_number
+join dim.dim_product d
+on a.product_code = d.product_code
+join dim.dim_date e
+on to_date(a.order_date) = e.dates;
+
+select * from fact_sales_order limit 10;
+
+
+#fact_sales_order
+create table fact_sales_order(
+order_sk int,
+customer_sk int,
+product_sk int,
+order_date string,
+order_amount double
+)
+partitioned by (days string)
+row format delimited fields terminated by '\t'
+stored as orc
+tblproperties('transactional'='true');
+

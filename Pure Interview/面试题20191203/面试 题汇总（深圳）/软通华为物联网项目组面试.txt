@@ -1,0 +1,79 @@
+软通华为 物联网项目组
+初试电话面试 大约20分钟
+1、hadoop各个组件和各个进程
+hdfs ，mr ，yarn  提的时候各个进程作用给他提下 
+
+2、hive
+使用过哪些hive函数 及其用法
+case when ，datediff ，concat，row_number,round(),多准备些 我憋了半天 说了七八个 他都没有想打断我的意思
+
+3、java
+问了个基础，当时比较懵没答出来，object类里面有哪些方法
+linklist和arraylist的区别
+
+4、hbase存储过程
+
+5、sparkstrming和storm  区别
+datefream 创建方式
+
+6、kafka你了解多少   主要讲了下如何防止消息重复或者丢失和副本机制足以满足他了
+以下是个人笔记  跟面试官说的时候 一定要提一下改哪个配置文件的哪一条 不用记着太多 ，记住一个就行了 producer.properties ack=？
+
+Kafka如何保证数据不丢失
+1.生产者数据的不丢失
+kafka的ack机制：在kafka发送数据的时候，每次发送消息都会有一个确认反馈机制，确保消息正常的能够被收到，其中状态有0,1，-1。
+如果是同步模式：ack机制能够保证数据的不丢失，如果ack设置为0，风险很大，一般不建议设置为0。即使设置为1，也会随着leader宕机丢失数据。
+producer.type=sync 
+request.required.acks=1
+如果是异步模式：也会考虑ack的状态，除此之外，异步模式下的有个buffer，通过buffer来进行控制数据的发送，有两个值来进行控制，时间阈值与消息的数量阈值，如果buffer满了数据还没有发送出去，有个选项是配置是否立即清空buffer。可以设置为-1，永久阻塞，也就数据不再生产。
+异步模式下，即使设置为-1。也可能因为程序员的不科学操作，操作数据丢失，比如kill -9，但这是特别的例外情况。
+producer.type=async 
+request.required.acks=1 
+queue.buffering.max.ms=5000 
+queue.buffering.max.messages=10000 
+queue.enqueue.timeout.ms = -1 
+batch.num.messages=200
+结论：producer有丢数据的可能，但是可以通过配置保证消息的不丢失。
+2.消费者数据的不丢失
+以spark-streaming消费kafka数据的两种方式为例，Receiver方式和Direct方式
+Receiver是使用Kafka的高级消费者API来实现的。Receiver从Kafka中获取数据都是存储在Spark Executor内存中的，然后Spark Streaming启动的job会去处理那些数据，这种方式很可能会丢失数据，如果要启用高可靠机制，让数据零丢失，就必须启动 WAL预写日志机制。该机制会同步地接收到Kafka数据写入分布式文件系统
+     Direct它会周期性的查询kafka，来获取每个topic + partition的最新offset，从而定义每一个batch的offset的范围。当处理数据的job启动时，就会使用kafka简单的消费者API来获取kafka指定offset的范围的数据。
+用其他工具保存offset，幂等写入，事务机制
+
+3.kafka集群中的broker的数据不丢失
+每个broker中的partition我们一般都会设置有replication（副本）的个数，生产者写入的时候首先根据分发策略（有partition按partition，有key按key，都没有轮询）写入到leader中，follower（副本）再跟leader同步数据，这样有了备份，也可以保证消息数据的不丢失。
+
+Kafka副本机制
+Kafka中Topic的每个Partition有一个预写式日志文件，每个Partition都由一系列有序的、不可变的消息组成，这些消息被连续的追加到Partition中，Partition中的每个消息都有一个连续的序列号叫做offset, 
+确定它在分区日志中唯一的位置。 
+Kafka每个topic的partition有N个副本，其中N是topic的复制因子。Kafka通过多副本机制实现故障自动转移，当Kafka集群中一个Broker失效情况下仍然保证服务可用。在Kafka中发生复制时确保partition的预写式日志有序地写到其他节点上。N个replicas中。其中一个replica为leader，其他都为follower，leader处理partition的所有读写请求，与此同时，follower会被动定期地去复制leader上的数据。 
+Kafka必须提供数据复制算法保证,如果leader发生故障或挂掉，一个新leader被选举并接收客户端的消息成功写入。Kafka确保从同步副本列表中选举一个副本为leader,或者换句话说,follower追赶leader数据。leader负责维护和跟踪ISR中所有follower滞后状态。当生产者发送一条消息到Broker,leader写入消息并复制到所有follower。消息提交之后才被成功复制到所有的同步副本。消息复制延迟受最慢的follower限制,重要的是快速检测慢副本,如果follower”落后”太多或者失效,leader将会把它从replicas从ISR移除。
+
+
+
+复试 30分钟
+什么知识点都不问，讲一下项目，前三个大致说一下带过就好， 最近的一个就说详细一点 他想知道  你自己做了哪一部分，遇到过什么问题
+我大部分都是这么回答的
+数仓项目：
+1、你在项目里做了什么？
+我做了一下数据清洗，sqoop导数据 数据分析 看一下hive做数据清洗怎么整函数比较多 我说用mr ,他说那个写起来太复杂了，hive写起来简单为啥不用，我们的项目有些操作用hive不好弄，它自己解析的逻辑有些地方效率不高
+2、你们脚本一天要跑多久？
+一两个小时吧
+在跑的时候有没有遇到过突然跑不了的情况？
+有啊，我乱说的 我也没想好这个问题 就说我权限不足 公司集群权限分配很明确 我们需要做一些优化 提出方案给我们老大 老大同意后 他发邮件让运维调整  这个时候就跟他讲了一堆的hive优化
+
+讲hive优化的时候 顺序：
+1、数据倾斜问题  先找到倾斜的key 提出来单独算或者加随机数 不能这么完了  还要说下 有的项目把K+V弄到一起做key整也可以
+2、大大表join问题
+解决方案：
+a、减少map数  调节参数mapper？？=默认128m 改成256后 map数减少了一半 （东哥笔记上有）这个30分钟的任务 调了之后可以减少个3，4分钟左右 （有个博客写的 你面试的时候就说我自己测试过的）
+b、开启jvm重用  效果不是特别明显
+c、ruduce输出的结果文件进行压缩  可以减少个几分钟 （原理我不太懂，说出来我看他也不懂，就默认他懂了继续说就完了）
+d、大表大表join的时候 两表关联的字段 这个字段在哪个表里面重复的次数少 哪个表就放前面
+3、开启map端join  参数什么的说一下（能写出来最好）
+4、大小表join 小表在前大表在后
+
+遇到一些数据量多大跑多久，集群多大的问题  什么调优改配置文件的
+提前想好一个量就好，说不出来就说我没权限 公司其他部门都在用我们的目标是这个需求先能够跑出来在做优化 只要不是特别大的问题能不调就不调 ，调出事会被别的部分甩锅，然后话锋一转我自己对这些很感心趣有研究过做过总结
+再把老师文档的调优 记得多少说多少
+

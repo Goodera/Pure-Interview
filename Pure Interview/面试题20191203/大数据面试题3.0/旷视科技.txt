@@ -1,0 +1,45 @@
+﻿旷视科技面试总结
+1,项目的架构（几个项目都会简单问一问的，重点讲你的负责的模块，项目时间的衔接，中间你干嘛的）
+flume +hdfs +kafka +hive +mysql
+  描述的要清晰，最好将为什么选型，为什么用，
+
+  项目中一些业务逻辑要说清，会临时穿插一些逻辑扩展，怎么解决？
+
+ 项目后期迭代中，遇到的实际问题,比如添加某些逻辑指标（可以从原有的基础数据查询处理的），（原本不存在的字段，新逻辑呢？）添加一些字段呢怎么去高效的修改代码进行迭代？参考hadoop项目中的脚本sql语句
+
+2,项目中负责的功能模块的实现,具体到用什么方法实现什么功能产生什么结果,你的离线数据以什么为单位划分的,如果任务宕掉的话,怎样能监控到,你们的任务一般都是什么时候进行运行的,如何解决数据延迟的问题
+
+3,项目中遇到的问题:我当时说了数据倾斜,然后他问我什么情况下什么数据产生了数据倾斜,具体到字段信息，
+
+
+4,根据需求场景写hive语句
+	
+
+
+5,wordcount的代码如何转换为sql,请书写一下
+session =new SparkSession
+read.textfile("dir")
+lines.split(" ").withColumnRenamed("value","word").createTempView("W_C)
+session.sql(select word ,count(*) counts from w_c  goroup by word order by counts desc )
+
+ 
+6,MR的reduce和SQL中的group by的比较
+
+7,stage,task和job的区别与划分方式
+
+   我们称为Mapreduce程序，一个Mapreduce程序就是一个Job，而一个Job里面可以有一个或多个Task，Task又可以区分为Map Task和Reduce Task.
+一个Application和一个SparkContext相关联，每个Application中可以有一个或多个Job，可以并行或者串行运行Job。Spark中的一个Action可以触发一个Job的运行。在Job里面又包含了多个Stage，Stage是以Shuffle进行划分的。在Stage中又包含了多个Task，多个Task构成了Task Set。
+Mapreduce中的每个Task分别在自己的进程中运行，当该Task运行完的时候，该进程也就结束了。和Mapreduce不一样的是，Spark中多个Task可以运行在一个进程里面，而且这个进程的生命周期和Application一样，即使没有Job在运行。
+
+8,kafka,flume,hdfs,sqoop,storm,spark系列,MR的所有知识他都会问到,另外他不想听到理论性的知识,希望有实际经验，遇到的问题，踩过的坑，
+
+
+9,因为他们的项目组尚在发展阶段,所以去了公司,公司项目的架构与spark项目的架构类似,但是需要对一系列组件都需要了解,另外项目实施环境的运行和细节方面的会很多,需要注意.
+
+10，对哪方面比较了解，精通，说说，说说工作中你认为追比较有难度，有意思和挑战性的项目有哪些？
+
+11，有什么要了解的? 你的优缺点，对公司有什么了解?，这个挺重要的，说不清立马会减分，最后的沟通很重要，
+
+12,算法，红黑二叉树优先遍历，递归思想的应用，排序冒泡等，他们会炸你，说你写的不对。别怂就行了，他们在对你做测试。
+13，关于数仓，数仓的建设，项目中你都用哪些表？哪些字段呢？
+14，平台的数据量，项目组以及公司的人员配备。

@@ -1,0 +1,90 @@
+深圳亿达信息外包面试腾讯项目组
+
+笔试题准备
+
+1.怎么查看表结构
+	desc + 表名
+  
+  怎么查看建表语句
+	show create table + 表名
+	
+  怎么查看表有哪些分区？
+	show partitions + 表名
+	
+  怎么查看分区对应的路径？
+	describe formatted 表名 partition(具体的哪个分区)
+	
+  怎么计算某个分区的数据量大小？怎么计算某个分区的文件总数？
+    analyze table 表名 partition(具体的哪个分区) compute statistics;
+  
+ 
+ 2.怎么查看hive有什么自带的函数？怎么查看函数的详细信息？
+	查看函数：
+		show functions
+		
+	查看函数的详细信息：
+		desc function extended + 函数名
+		
+3.请时指出下面两个语句的不同
+	select x from t where ds = 20150101 and province = 'gd' or province = 'gx'
+	select x from t where ds = 20150101 and (province = 'gd' or province = 'gx')
+	
+	AND 的优先级大于 OR 小于 () 我是这样答的,他没说什么
+	
+	
+4.将字符串 "key1 = value1&key2 = value2....keyn = valuen" 进行分割放到一个字段里面,可以查出任意一个keyx对应的valuex的值,请写出查询语句,并计算总共有多少个key值
+			SELECT
+			SUBSTR(t.z,INSTR(t.z,'keyx') + LENGTH('keyx') + 1,LENGTH('keyx') +2 ) ,
+			LENGTH(t.z) - LENGTH(REPLACE(t.z,'分割符','')) + 1
+			FROM
+			t
+			
+			这题我这样写他说不行说要用子视图,子视图估计是子查询吧，各位自己想想
+			
+5.用一个字符串比如"a|b|c"来测试某个函数比如split(用|分割符字符串进行分割)的语句
+			select split("a|b|c",'|');
+			
+6.a表和b表内连接.a表为小表,只有2000行记录
+		select a.* from a join b on a.key = b.key
+		可以进行怎么样的优化
+		
+		查询的全是a边的内容使用 left join (他说left join 和 join 的效率一样)
+		
+		开启map端join是正确答案（去的最好把参数记一下）
+		
+7.a 表 left join b 表,b为小表,可以进行怎么样的优化？
+        select a.* from a left join b on a.key = b.key
+		
+		如果a为小表可以怎么样优化？
+		
+		开启map端join
+		
+		
+8. 两大表发生数据倾斜，有一个reduce无法完成,检查发现ti中guid="的记录很多,其他guid都不重复,这条语句该怎么样优化
+	我的答案：1.单独提取出来进行计算后和其他正常的guid计算后进行union
+	          2.给guid = "的字段进行随机赋值，不能影响正常业务需求
+			  
+	他的意思是既然是错的就丢掉这部分数据,估计就是进行一下判断,字段空的就不要了，还要他说我的这些优化方法系统自己会去实现
+	
+	
+ 面试题：
+1.首先是问了我的java 我说集合比较熟,他就问了线程的创建方式,我答了那4种创建方式,他又问线程池创建线程和继承Thread的区别,这个没搞清楚是底层的还是就是一个是new 出来,一个是继承就行了
+2.然后是Shell编程,这个没答出来,我说我能看懂会改,现场写一个不行
+3.MR程序执行过程中有一个reduce down掉了怎么处理,开始不是说的reduce 是 jobtracker(hadoop1.x的) 我一开始没听懂,后来答的 ApplicationMaster 会去安排另一个reducer 进行处理
+4.hadoop mr的具体过程  split -> spill ->下沉到disk ->字典排序 -> merge -> copy -> merge -> reduce 说了下一些具体的方法
+5.还有就是上面错的一些问题,就是我打过他的意思的。。。。
+6.数仓架构,数仓搭建流程,数仓的底层搭建？（他们项目组需要一个有经验的，真正做过数仓的,最好是建模经验，这个是我问的）
+7.还有就是1到100顺序数怎么快速打散? 我答的是用一个List集合装载然后调用 Collections.Shuffle(装载集合)  他说用算法实现  我说用随机抽取的方法,抽到后先进行在已经抽取的list中判断是否有这个数有的话就再抽一个随机数直到装满为止,他说你这个面对大数据可不行,我说不是1到100吗,他说时间复杂度太高 n的平方
+有没有更好的办法,我说暂时就想到这个，就没说了。
+8.还有个 final 和 finally的区别
+9.项目问题就是你这个架构那客户换了个需求又要从头来一遍,我说多出来的用增量导数据,每天定时运行脚本,只是要写sql而已,难道数仓不是写sql的吗？（项目问题多偏业务方向，请做好准备）
+10.最后问了个离职原因？为什么会进外包？
+
+
+面试总结：算法的实用性这一块会问一些做好准备，还有就是Shell编程最好是自己会写，他们说hadoop和spark模块的写好需求代码一般不会再改了，就是招聘意向是ETL工程师(最好是做过底层的)
+       
+	   
+   还有什么想问的找我聊。。。。
+		
+		
+		

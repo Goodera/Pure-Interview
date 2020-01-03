@@ -1,0 +1,27 @@
+1.map与mapPartitions的区别
+2.foreach和foreachPartition的区别
+3.groupByKey,reduceByKey和combineByKey的区别
+4.各组件的版本
+5.flume获取数据是用什么方式
+6.spark sql中缓存方式有哪几种
+  registerTempTable是action类型的么,发生不发生缓存
+7.sql怎么一条数据某个字段有多个值拆分成多条字段各有一个值,
+  udf,udaf,udtf区别,
+  除了udtf,用自带的
+8.spark on yarn的两种模式的区别
+9.用sparkcore,不用sparksql怎么写入数据库
+10.主要是你写的项目中的问题问的比较细
+  数据量,集群数,分配的资源数
+  hive中存储为什么格式,有几张hive表,有什么字段
+  压没压缩,spark session的accumulator为什么要用字符串
+  task信息怎么从前台传到spark的
+  点击执行怎么能知道查询哪张hive表
+  kafka用的什么模式,区别
+	........
+
+  项目中的问的特别细..
+11.shell问题
+  
+  
+  
+  

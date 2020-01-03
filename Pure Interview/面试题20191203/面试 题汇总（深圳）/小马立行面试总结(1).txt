@@ -1,0 +1,18 @@
+小马立行
+
+linux常用命令
+git命令
+spark分析单词的topN和词频
+java或者scala写UDF函数对身份证前两位数据进行解析匹配地址
+ods,dwd,dws,dm的概念
+
+腾讯面试
+画事实表和维度表
+求topN的sql
+每天数据量多少
+kafka集群规模
+topic的partition有几个
+kafka积压问题怎么解决
+你们公司的集群有多少台
+spark的excutor数量，内存大小，cpu core的内存大小
+hbase中存的是什么数据

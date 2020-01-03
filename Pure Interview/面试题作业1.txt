@@ -1,0 +1,132 @@
+1. Spark调优方案
+
+1. spark1.6以下的版本中execution和storage的内存是各自固定的,执行内存负责transform算子和
+shuffle算子,storage负责catch部分和广播变量的存储。通过以下两个参数改变它们的大小。
+spark.shuffle.memoryFraction=0.2
+spark.storage.memoryFraction=0.6
+2. spark1.6以上的版本时使用联合内存机制,两者可以互相借用内存,但是如果执行内存不够时会强
+制回收storage借走的内存。因此如果要进行大缓存任务时建议手动设置固定内存机制。
+3. 1.6以上的版本还额外增加了堆外内存,调用persist方法时指定StorageLevel.OFF_HEAP参数,配
+合分布式内存文件系统Tachyon将需要缓存很久的数据存放到堆外内存,大幅降低full GC的发生频
+率。
+. 使用repartition增加分区数量,降低每个task的大小
+4. 当合并分区的数据量过大时,可以使用repartition并手动指定使用shuffle来进行带shuffle的合并
+操作,可以在合并前先进行一次聚合。
+5. 使用shuffle算子时指定分区数量或指定自定义分区器避免数据倾斜
+6. 当某个数据重复很多时,尽量用一个对象来代表这些数据,可以是string,也可以是带计数器的
+map。
+7. 使用mapPartition代替map可以提升效率,但要注意内存紧缺时不能使用。
+8. map端join:当join小表时,可以先用collect将数据收集到driver端,然后用广播变量的方式发送
+到各个节点上,避免大数据的迁移。
+9. 可以使用map端reduce的方式进一步减少网络IO。调用combineByKey算子。
+10. 内存不足时使用rdd.persist(StorageLevel.MEMORY_AND_DISK_SER),直接缓存到磁盘。
+11. spark集群节点应该覆盖hbase,因为spark读取hbase时是按region读取,在同一个节点上可以避
+免大量数据迁移
+12. 参数设置:
+spark.driver.memory (default:1G) 设置driver端内存
+spark.rdd.compress 设置压缩内存的rdd数据,减少内存的占用,但是增加CPU负担
+spark.serializer 设置默认kyro
+spark.memory.storageFraction 设置storage在内存中的比例,根据缓存的大小决定
+spark.locality.wait 设置等待任务的等待时间,如果某个任务等待数据到达的时间超过该时间,
+就会被下调优先级
+spark.speculation 设置空闲节点是否执行某个⻓时间未结束的task,有点类似hive的预测执
+行,建议开启。
+总结
+减少GC:增加计算用的内存;把频繁使用的大缓存缓存到堆外内存;使用计数器存储重复的数据
+增加并行度:shuffle时指定分区数量、repartition增加分区(可用线程的2-3倍)、减小分区可以指定
+带shuffle的repartition进行局部聚合
+减少shuffle:使用指定的分区器进行分区,使得相同的key都处于同一分区中(主要用在数据清洗时按
+自定义分区器存储数据)
+map端join:先读取小表到driver端存成广播变量,再读取大表使用广播变量进行join
+map端reduce:使用combineByKey算子
+指定persist : 内存不足时用persisit指定缓存磁盘来代替catch
+参数调优:设置压缩RDD(节约内存,加重CPU)、设置kyro序列化、延⻓下调本地化级别的等待时
+间、开启预测执行等等
+
+
+
+2. NameNode故障数据恢复
+首先进入安全模式:
+hdfs dfsadmin -safemode enter
+然后刷一下active节点的log到image
+hdfs dfsadmin -saveNamespace
+然后将active节点的image文件全部拷⻉到故障节点的相应目录下
+然后重启故障namenode
+最后hdfs namenode -bootstrapStandby
+到此,故障解决。
+后来还解决过一次hdfs的block丢失的问题,也是将原先的image全部拷⻉回来搞定的。
+所以说,即便有ha,定期备份image文件还是很重要的
+
+HA：
+首先进入安全模式:
+hdfs dfsadmin -safemode enter
+然后刷一下active节点的log到image
+hdfs dfsadmin -saveNamespace
+然后将active节点的image文件全部拷⻉到故障节点的相应目录下
+然后重启故障namenode
+最后hdfs namenode -bootstrapStandby
+到此,故障解决。
+后来还解决过一次hdfs的block丢失的问题,也是将原先的image全部拷⻉回来搞定的。
+所以说,即便有ha,定期备份image文件还是很重要的。
+
+
+3. 数据存储在hdfs格式,使用的什么压缩方式,压缩比多少
+
+
+目前在Hadoop中用得比较多的有lzo,gzip,snappy,bzip2这4种压缩格式,笔者根据实践经验介绍
+一下这4种压缩格式的优缺点和应用场景,以便大家在实践中根据实际情况选择不同的压缩格式。1. gzip压缩
+优点:
+压缩率比较高,而且压缩/解压速度也比较快;
+hadoop本身支持,在应用中处理gzip格式的文件就和直接处理文本一样;
+有hadoop native库;
+大部分linux系统都自带gzip命令,使用方便。
+缺点:不支持split。
+应用场景:
+当每个文件压缩之后在130M以内的(1个块大小内),都可以考虑用gzip压缩格式。譬如说
+一天或者一个小时的日志压缩成一个gzip文件,运行mapreduce程序的时候通过多个gzip文
+件达到并发。
+hive程序,streaming程序,和java写的mapreduce程序完全和文本处理一样,压缩之后原
+来的程序不需要做任何修改。
+2. lzo压缩
+优点:
+压缩/解压速度也比较快,合理的压缩率;
+支持split,是hadoop中最流行的压缩格式;
+支持hadoop native库;
+可以在linux系统下安装lzop命令,使用方便。
+缺点:
+压缩率比gzip要低一些;
+hadoop本身不支持,需要安装;
+在应用中对lzo格式的文件需要做一些特殊处理(为了支持split需要建索引,还需要指定
+inputformat为lzo格式)。
+应用场景:
+一个很大的文本文件,压缩之后还大于200M以上的可以考虑,而且单个文件越大,lzo优点
+越明显。
+3. snappy压缩
+优点:
+高速压缩速度和合理的压缩率;
+支持hadoop native库。
+缺点:
+不支持split;
+压缩率比gzip要低;
+hadoop本身不支持,需要安装;
+linux系统下没有对应的命令。
+应用场景:
+当mapreduce作业的map输出的数据比较大的时候,作为map到reduce的中间数据的压缩
+格式;或者作为一个mapreduce作业的输出和另外一个mapreduce作业的输入。
+4. bzip2压缩
+优点:
+支持split;
+具有很高的压缩率,比gzip压缩率都高;
+hadoop本身支持,但不支持native;
+在linux系统下自带bzip2命令,使用方便。
+缺点:
+压缩/解压速度慢;不支持native。
+应用场景:
+适合对速度要求不高,但需要较高的压缩率的时候,可以作为mapreduce作业的输出格式;
+或者输出之后的数据比较大,处理之后的数据需要压缩存档减少磁盘空间并且以后数据用得
+比较少的情况;
+或者对单个很大的文本文件想压缩减少存储空间,同时又需要支持split,而且兼容之前的应
+用程序(即应用程序不需要修改)的情况。
+
+
+

@@ -1,0 +1,14 @@
+hdfs 的读写操作具体原理流程
+oozie的组件关系 workflow coordinator bundle
+hive表的字段名
+如何调试oom
+oom在哪个文件查看，具体的报错信息是什么
+内存溢出 内存泄漏
+spark on yarn的提交流程
+一般都用yarn的8088端口看哪些信息
+提交参数
+hdfs如何查看分区分块信息
+spark的shuffle原理流程
+hive hbase的数据迁移
+task partition block数量跟什么有关 
+linux常用指令

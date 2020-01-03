@@ -1,0 +1,12 @@
+kafka 数据一致性
+kafka 保证时序性
+hive的优化
+hive的开窗函数
+hdfs的读写流程
+hdfs多磁盘挂载
+sqoop架构
+cdh的cloudera manager架构功能
+
+项目  集群组成
+写了两个项目 嫌我项目少
+感觉面试官觉得项目眼熟 不好明说

@@ -1,0 +1,25 @@
+1.将以下hive表
+	name	course		score
+	aa		English		75
+	bb		math		85
+	aa		math		90
+	使用sql输出以下结果
+	name	English		math
+	aa		75			90
+	bb		0			85
+2.hadoop生态体系的构成以及每个组件的作用
+3.hadoop中hdfs读写过程
+4.spark工作流程,提交任务流程
+5.数据仓库与hive的联系
+6.java书写用户裂变代码
+	要求:一个师父有多个徒弟,多个徒弟又有多个徒弟,以此类推,已知徒弟和师父的id,要求给一个师父的ID得出徒弟的所有信息(包括输出所有徒弟个数,徒弟有几层,每一层有几个徒弟)
+7.RANK、DENSE_RANK以及ROW_NUMBER的区别
+8.多表join如何处理?
+9.hive以及mysql表数据的查询
+10.map与reduce阶段的流程
+11.各个调优实现的环境,方法,以及为什么要以这种方法调优
+12.不借助任何平台将两个文件合并为一个新文件
+13.两个单词文件求交集MR代码
+14.分组求topn用mysql实现的sql代码
+15.项目中页面转化率的spark代码
+16.二分查找代码

@@ -1,0 +1,10 @@
+
+1.kafka的consumer消费能力很低的情况下的处理方案
+
+2.kafka的producer具体如何写入一个topic中（可能表大的不对面试官大概问的就是这个单个topic的kafka写入流程ba)
+
+3.mysql优化具体方案
+
+4.DAG原理，为什么sparkRDD用DAG？（感觉应该是让说DAG优点，）
+
+5.RDD算子为什么可以保证血缘关系（应该是跟源码有关系的回答）

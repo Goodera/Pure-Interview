@@ -1,0 +1,301 @@
+一、简答题
+1、HDFS写数据流程（画图）
+2、如何干预MR中maptask的并行度
+3、hive的优化
+4、hbase的行键热点问题如何解决
+5、flume如何保证数据的安全性
+6、ETL的工作内容有哪些（详细说明）
+7、数仓的架构（详细说明）
+8、数仓的构建流程（详细说明 ）
+
+二、SQL题
+1、有下表product_info,请观察下面表结构及数据写一HQL语句得到所示的返回值，要求pid相同的记录中只返回price最大纪录
+id name pid price
+1,A,1,1000
+2,B,1,340
+3,C,2,1000
+4,D,1,130
+5,E,3,360
+5,F,2,600
+7,G,3,100
+8,H,7,80
+9,I,8,40
+10,J,8,80
+11,K,7,260
+返回结果：
+id name pid price
+1 A 1 1000
+3 C 2 1000
+5 E 3 360 
+11 K 7 260
+10 J 8 80
+
+create table if not exists t1(
+id int,
+name string,
+pid int,
+price int
+)
+row format delimited
+fields terminated by ','
+;
+load data local inpath '/home/hadoop/long/t1.txt' overwrite into table t1;
+
+select
+id,name,pid,price
+from
+(select
+id,
+name,
+pid,
+price,
+rank() over(distribute by pid sort by price desc) rk
+from t1) tmp
+where rk=1
+;
+
+2、写出查询语句
+现有一张成绩score表
+id username math computer english
+1	huangbo	34	58	58
+2	xuzheng	45	87	45
+3	wangbaoqiang	76	34	89
+请编写一个SQL语句把以上的这张表转换成下面这张表
+id  username course score
+1	huangbo	math	34
+1	huangbo	computer	58
+1	huangbo	english	58
+2	xuzheng	math	45
+2	xuzheng	computer	87
+2	xuzheng	english	45
+3	wangbaoqiang	math	76
+3	wangbaoqiang	computer	34
+3	wangbaoqiang	english	89
+create table if not exists t2(
+id int,
+username string,
+math int,
+computer int,
+english int
+)
+row format delimited 
+fields terminated by ','
+;
+load data local inpath '/home/hadoop/long/t2.txt' overwrite into table t2;
+
+select 
+id,username,'math' course,math score
+from t2
+union all 
+select 
+id,username,'computer',computer
+from t2
+union all
+select
+id,username,'english',english
+from t2
+;
+
+法二(优化)：
+select 
+t2.id,
+t2.username,
+tmp.course,
+tmp.score
+from t2
+lateral view explode(str_to_map(concat('math=',math,'&computer=',computer,'&english=',english),'&','=')) tmp as course,score;
+
+3、写出建表语句及查询语句
+ID	type_flag	tags
+10001	3	11_20_30,11_22_34,12_23_30,13_24_36
+10002	2	11_20,11_22,12_23,13_24
+10003	1	11,12
+变为
+ID	type_flag	tag1	tag2	tag3
+10001	3	11	20	30
+10001	3	11	22	34
+10001	3	12	23	30
+10001	3	13	24	36
+10002	2	11	20
+10002	2	11	22
+10002	2	12	23
+10002	2	13	24
+10003	1	11
+10003	1	12
+
+create table if not exists t3(
+id int,
+type_flag int,
+tags array<string>
+)
+row format delimited
+fields terminated by ' '
+collection items terminated by ','
+;
+load data local inpath '/opt/hive/long/t3.txt' overwrite into table t3;
+
+select
+id,
+type_flag,
+tags1[0] tag1,
+nvl(tags1[1],'') tag2,
+nvl(tags1[2],'') tags3
+from
+(select 
+ID,
+type_flag,
+split(tag,'_') tags1
+from t3
+lateral view explode(tags) tmp as tag) tmp
+;
+
+
+4、做如下转换，写出建表语句及查询语句
+a	b	1,2,3
+c	d	4,5,6
+变为：
+a	b	1
+a	b	2
+a	b	3
+c	d	4
+c	d	5
+c	d	6
+
+create table if not exists t4(
+id1 string,
+id2 string,
+num array<int>
+)
+row format delimited
+fields terminated by ' '
+collection items terminated by ','
+;
+load data local inpath '/home/hadoop/long/t4.txt' overwrite into table t4;
+
+select 
+id1,
+id2,
+number
+from t4
+lateral view explode(num) tmp as number
+;
+
+5、使用hive SQL，根据shop_id分组，按照money排序，得到r,d,a三列顺序
+shop_id,brand,money
+A,a,10
+A,b,12
+A,c,5
+B,a,8
+B,c,8
+B,x,1
+B,n,0
+变为：
+shop_id	brand	money	r	d	a
+A	a	10	2	2	2
+A	b	12	1	1	1
+A	c	5	3	3	3
+B	a	8	1	1	1
+B	c	8	2	1	1
+B	x	1	3	3	2
+B	n	0	4	4	3
+
+create table if not exists t5(
+shop_id string,
+brand string,
+money int
+)
+row format delimited
+fields terminated by ','
+;
+load data local inpath '/home/hadoop/long/t5.txt' overwrite into table t5;
+
+select 
+shop_id,
+brand,
+money, 
+row_number() over(distribute by shop_id sort by money desc) r,
+rank() over(distribute by shop_id sort by money desc) d,
+dense_rank() over(distribute by shop_id sort by money desc) a
+from t5
+;
+
+
+6、使用Hive SQL 计算上下相邻两次uv_time之间的时间间隔
+id	uv_time
+1	2018-05-01 01:00:34
+2	2018-05-01 02:12:41
+3	2018-05-02 15:31:26
+4	2018-05-08 12:40:39
+
+create table if not exists t6(
+id int,
+uv_time string
+)
+row format delimited 
+fields terminated by ','
+;
+load data local inpath '/home/hadoop/long/t6.txt' overwrite into table t6;
+
+select 
+id,
+uv_time,
+time,
+datediff(time,uv_time) `datediff`
+from
+(select
+id,
+uv_time,
+lead(uv_time,1) over(sort by uv_time) as time
+from t6) tmp
+where time is not null
+;
+返回结果：（天数,不太符合要求）
+id      uv_time time    datediff
+1       2018-05-01 01:00:34     2018-05-01 02:12:41     0
+2       2018-05-01 02:12:41     2018-05-02 15:31:26     1
+3       2018-05-02 15:31:26     2018-06-08 12:40:39     37
+
+select 
+id,
+uv_time,
+time,
+(unix_timestamp(time,'yyyy-MM-dd HH:mm:ss')-unix_timestamp(uv_time,'yyyy-MM-dd HH:mm:ss'))/60 `datediff`
+from
+(select
+id,
+uv_time,
+lead(uv_time) over(sort by uv_time) time
+from t6) tmp
+where time is not null
+;
+返回结果：(分钟)
+id      uv_time time    datediff
+1       2018-05-01 01:00:34     2018-05-01 02:12:41     72.11666666666666
+2       2018-05-01 02:12:41     2018-05-02 15:31:26     2238.75
+3       2018-05-02 15:31:26     2018-06-08 12:40:39     53109.21666666667
+
+
+7、一个叫team的表，里面只有一个字段name,一共有4条记录，分别是a,b,c,d,对应四个球队，
+现在四个球队进行比赛，只用一条SQL语句显示所有可能的比赛组合
+create table if not exists t7(
+name string
+);
+load data local inpath '/home/hadoop/long/t7.txt' overwrite into table t7;
+
+select 
+a.name,
+b.name
+from t7 a,t7 b
+where a.name>b.name
+;
+
+
+
+
+
+
+
+
+
+
+
